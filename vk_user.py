@@ -3,42 +3,114 @@ import time
 
 
 class UserVK:
-    def __init__(self, token, user_id=''):
+    def __init__(self, token, user_id):
+        self.access_token = token
+        self.v = '5.92'
         self.user_id = user_id
-        self.params = {
-            'access_token': token,
-            'v': '5.92'
+        self.error = 0
+        try:
+            if not user_id.isnumeric():
+                user = self.user_info()
+                self.user_id =user['response'][0]['id']
+            else:
+                self.user_id = user_id
+        except KeyError:
+            self.error = user['error']['error_code']
+            print(user['error']['error_msg'])
+
+    def user_info(self):
+        params = {
+            'access_token': self.access_token,
+            'v': self.v,
+            'user_ids': self.user_id
         }
+        try:
+            print('.')
+            time.sleep(0.4)
+            response = requests.get('https://api.vk.com/method/users.get', params)
+            return response.json()
+        except ConnectionError as e:
+            print(e)
 
     def get_friends(self):
-        response = requests.get('https://api.vk.com/method/friends.get', self.params)
-        return response.json()['response']['items']
+        params = {
+            'access_token': self.access_token,
+            'v': self.v,
+            'user_id': self.user_id
+        }
+        try:
+            print('.')
+            time.sleep(0.4)
+            response = requests.get('https://api.vk.com/method/friends.get', params)
+            return response.json()['response']['items']
+        except ConnectionError as e:
+            print(e)
+            return []
+        except KeyError:
+            return []
 
     def get_groups(self):
-        params = self.params
-        # params['user_id'] = str(self.user_id)
-        params['filter'] = 'groups, publics, events'
-        response = requests.get('https://api.vk.com/method/groups.get', self.params)
-        return response.json()['response']['items']
+        params = {
+            'access_token': self.access_token,
+            'v': self.v,
+            'user_id': self.user_id,
+            'extended': 1,
+            'fields': 'members_count'
+        }
+        print('.')
+        try:
+            time.sleep(0.4)
+            response = requests.get('https://api.vk.com/method/groups.get', params)
+            return response.json()['response']['items']
+        except ConnectionError:
+            print('Connection error')
+            return []
+        except KeyError:
+            return []
 
-    def get_group_members(self, group_id):
-        time.sleep(0.3)
-        params = self.params
-        params['group_id'] = str(group_id)
-        params['filter'] = 'friends'
-
-        response = requests.get('https://api.vk.com/method/groups.getMembers', params)
-        return response.json()['response']['count']
-
-    def get_unique_groups(self, group_list):
+    def get_unique_groups(self, groups_list, friends, max_friends=0):
         unique_list = list()
-        for group in group_list:
-            time.sleep(0.3)
-            params = self.params
-            params['group_id'] = str(group)
-            params['filter'] = 'friends'
+        friends_set = set(friends)
 
-            response = requests.get('https://api.vk.com/method/groups.getMembers', params)
-            if response.json()['response']['count']:
-                unique_list.append(group)
+        for group in groups_list[:1000]:
+            time.sleep(0.4)
+
+            offset = 0
+            group_id = group['id']
+            members_count = group['members_count']
+
+            print(group_id, members_count)
+            params = {
+                'access_token': self.access_token,
+                'v': self.v,
+                'group_id': group_id,
+                'sort': 'id_asc',
+                'count': '1000'
+            }
+
+            friends_in_group = 0
+
+            while offset < members_count and friends_in_group <= max_friends:
+                params['offset'] = offset
+
+                print('.')
+                try:
+                    time.sleep(0.4)
+                    response = requests.get('https://api.vk.com/method/groups.getMembers', params)
+                    offset += 1000
+                    response_set = set(response.json()['response']['items'])
+                    res = friends_set.intersection(response_set)
+                    friends_in_group += len(res)
+                except KeyError as e:
+                    print(response.json()['error']['error_msg'])
+                except ConnectionError as e:
+                    print(e)
+
+            if friends_in_group <= max_friends:
+                write_group = {
+                    'id': group['id'],
+                    'name': group['name'],
+                    'members_count': group['members_count']
+                }
+                unique_list.append(write_group)
         return unique_list
