@@ -32,9 +32,12 @@ if __name__ == '__main__':
             get_groups_list = user1.get_groups()
             pprint(get_groups_list)
             friends = user1.get_friends()
-            groups_list = user1.get_unique_groups(get_groups_list, friends, int(max_friends))
+            # groups_list = user1.get_unique_groups(get_groups_list, friends, int(max_friends))
+
+            groups_list = user1.get_unique_groups_2(get_groups_list, friends, int(max_friends))
 
             with open('groups.json', 'w', encoding='utf-8') as result_file:
                 json.dump(groups_list, result_file, ensure_ascii=False, indent=2)
+
     except AssertionError as e:
         print(e)

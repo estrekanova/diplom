@@ -114,3 +114,44 @@ class UserVK:
                 }
                 unique_list.append(write_group)
         return unique_list
+
+    def get_unique_groups_2(self, groups_list, friends, max_friends=0):
+        unique_list = list()
+        for group in groups_list[:1000]:
+            group_id = group['id']
+            try:
+                members_count = group['members_count']
+            except KeyError:
+                break
+            friends_start_item = 0
+
+            print(group_id, members_count)
+            params = {
+                'access_token': self.access_token,
+                'v': self.v,
+                'group_id': group_id
+            }
+            friends_in_group = 0
+            while friends_start_item < len(friends) and friends_in_group <= max_friends:
+                friends_list = ','.join(map(str, friends[friends_start_item:friends_start_item+300]))
+                params['user_ids'] = friends_list
+
+                friends_start_item += 300
+                time.sleep(1)
+                print('.')
+                response = requests.get('https://api.vk.com/method/groups.isMember', params)
+                try:
+                    friends_in_group += sum(dct['member'] for dct in response.json()['response'])
+                except Exception as e:
+                    print(e)
+                    print(response.json())
+
+            if friends_in_group <= max_friends:
+                write_group = {
+                    'id': group['id'],
+                    'name': group['name'],
+                    'members_count': group['members_count']
+                }
+                unique_list.append(write_group)
+
+        return unique_list
